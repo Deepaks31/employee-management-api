@@ -31,23 +31,21 @@ namespace EmployeeManagementSystem.Services
             {
                 Username = dto.Username,
                 Password = _passwordHasher.HashPassword(dto.Password),
-                Role = dto.Role
+                Role = "Employee" // Default role for all new signups
             };
 
             await _unitOfWork.Users.AddAsync(user);
 
-            if (dto.Role == "Employee")
+            // Always create an employee profile since role is Employee
+            var employee = new Employee
             {
-                var employee = new Employee
-                {
-                    Name = dto.Username,
-                    Email = "Update Email",
-                    Salary = 0,
-                    DepartmentId = null,
-                    Projects = new List<Project>()
-                };
-                await _unitOfWork.Employees.AddAsync(employee);
-            }
+                Name = dto.Username,
+                Email = dto.Email, // Map the provided email
+                Salary = 0,
+                DepartmentId = null,
+                Projects = new List<Project>()
+            };
+            await _unitOfWork.Employees.AddAsync(employee);
 
             await _unitOfWork.CompleteAsync();
 
