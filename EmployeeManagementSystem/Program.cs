@@ -116,4 +116,21 @@ app.UseAuthorization();
 
 app.MapControllers();
 
+using (var scope = app.Services.CreateScope())
+{
+    var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    var passwordHasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
+
+    if (!context.Users.Any(u => u.Role == "Admin"))
+    {
+        context.Users.Add(new EmployeeManagementSystem.Models.User
+        {
+            Username = "admin",
+            Password = passwordHasher.HashPassword("Admin@123"),
+            Role = "Admin"
+        });
+        context.SaveChanges();
+    }
+}
+
 app.Run();
