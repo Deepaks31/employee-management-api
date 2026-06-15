@@ -64,6 +64,65 @@ namespace EmployeeManagementSystem.Services
 
             return _jwtTokenGenerator.GenerateToken(user);
         }
+
+        public async Task<string> SsoLoginAsync(SsoLoginDto dto)
+        {
+            using var httpClient = new System.Net.Http.HttpClient();
+            httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", dto.Token);
+            
+            var response = await httpClient.GetAsync("https://graph.microsoft.com/v1.0/me");
+            if (!response.IsSuccessStatusCode)
+            {
+                throw new Exception("Invalid Microsoft SSO Token");
+            }
+
+            var content = await response.Content.ReadAsStringAsync();
+            var jsonDoc = System.Text.Json.JsonDocument.Parse(content);
+            var root = jsonDoc.RootElement;
+            
+            string email = root.TryGetProperty("userPrincipalName", out var upnProp) ? upnProp.GetString() : null;
+            if (string.IsNullOrEmpty(email))
+            {
+                email = root.TryGetProperty("mail", out var mailProp) ? mailProp.GetString() : null;
+            }
+
+            if (string.IsNullOrEmpty(email) || !email.EndsWith("@eigensecure.com", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new Exception("Access Denied: You must use an @eigensecure.com account.");
+            }
+
+            var username = email;
+            var users = await _unitOfWork.Users.FindAsync(u => u.Username == username);
+            var user = users.FirstOrDefault();
+
+            if (user == null)
+            {
+                // JIT Provisioning
+                user = new User
+                {
+                    Username = username,
+                    Password = _passwordHasher.HashPassword(Guid.NewGuid().ToString()), // Unguessable password
+                    Role = "Employee"
+                };
+                await _unitOfWork.Users.AddAsync(user);
+
+                string displayName = root.TryGetProperty("displayName", out var nameProp) ? nameProp.GetString() : email;
+
+                var employee = new Employee
+                {
+                    Name = displayName,
+                    Email = email,
+                    Salary = 0,
+                    DepartmentId = null,
+                    Projects = new List<Project>()
+                };
+                await _unitOfWork.Employees.AddAsync(employee);
+
+                await _unitOfWork.CompleteAsync();
+            }
+
+            return _jwtTokenGenerator.GenerateToken(user);
+        }
     }
 }
 

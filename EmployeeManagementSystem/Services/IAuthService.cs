@@ -6,6 +6,7 @@ namespace EmployeeManagementSystem.Services
     {
         Task<string> RegisterAsync(RegisterDto dto);
         Task<string> LoginAsync(LoginDto dto);
+        Task<string> SsoLoginAsync(SsoLoginDto dto);
     }
 }
 

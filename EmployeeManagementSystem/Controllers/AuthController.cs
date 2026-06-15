@@ -32,5 +32,11 @@ namespace EmployeeManagementSystem.Controllers
             var token = await _authService.LoginAsync(dto);
             return Ok(new { Token = token });
         }
+        [HttpPost("sso-login")]
+        public async Task<IActionResult> SsoLogin([FromBody] SsoLoginDto dto)
+        {
+            var token = await _authService.SsoLoginAsync(dto);
+            return Ok(new { Token = token });
+        }
     }
 }
