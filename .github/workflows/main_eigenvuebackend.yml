@@ -52,4 +52,4 @@ jobs:
           app-name: 'eigenvuebackend'
           slot-name: 'Production'
           package: .
-          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_21C5E94A2C2945149591B32D03DB3427 }}
+          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_50A63AC64E084E77B5E71C64613E6158 }}
