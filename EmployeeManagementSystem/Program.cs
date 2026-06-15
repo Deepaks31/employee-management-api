@@ -46,7 +46,7 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowVueApp", policy =>
     {
-        policy.SetIsOriginAllowed(origin => true)
+        policy.WithOrigins("http://localhost:5173", "https://eigenvuefrontend.azurewebsites.net")
               .AllowAnyHeader()
               .AllowAnyMethod()
               .AllowCredentials();
