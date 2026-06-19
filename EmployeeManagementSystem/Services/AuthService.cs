@@ -94,10 +94,12 @@ namespace EmployeeManagementSystem.Services
             var username = email;
             var users = await _unitOfWork.Users.FindAsync(u => u.Username == username);
             var user = users.FirstOrDefault();
+            
+            bool changesMade = false;
 
             if (user == null)
             {
-                // JIT Provisioning
+                // JIT Provisioning for User
                 user = new User
                 {
                     Username = username,
@@ -105,7 +107,13 @@ namespace EmployeeManagementSystem.Services
                     Role = "Employee"
                 };
                 await _unitOfWork.Users.AddAsync(user);
+                changesMade = true;
+            }
 
+            // Ensure Employee profile exists
+            var employees = await _unitOfWork.Employees.FindAsync(e => e.Email == email);
+            if (!employees.Any())
+            {
                 string displayName = root.TryGetProperty("displayName", out var nameProp) ? nameProp.GetString() : email;
 
                 var employee = new Employee
@@ -117,7 +125,11 @@ namespace EmployeeManagementSystem.Services
                     Projects = new List<Project>()
                 };
                 await _unitOfWork.Employees.AddAsync(employee);
+                changesMade = true;
+            }
 
+            if (changesMade)
+            {
                 await _unitOfWork.CompleteAsync();
             }
 
