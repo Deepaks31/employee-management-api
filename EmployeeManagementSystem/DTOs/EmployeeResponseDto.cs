@@ -13,6 +13,8 @@ namespace EmployeeManagementSystem.DTOs
         public string DepartmentName { get; set; }
 
         public List<string> Projects { get; set; }
+
+        public string CurrentShift { get; set; }
     }
 }
 

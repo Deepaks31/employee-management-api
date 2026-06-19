@@ -18,6 +18,8 @@ namespace EmployeeManagementSystem.Models
 
         // Many-to-Many
         public List<Project> Projects { get; set; }
+
+        public string CurrentShift { get; set; } = "Morning"; // Default shift
     }
 }
 

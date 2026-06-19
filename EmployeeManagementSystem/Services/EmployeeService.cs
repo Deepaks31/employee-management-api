@@ -40,7 +40,8 @@ namespace EmployeeManagementSystem.Services
                     Salary = e.Salary,
                     Email = e.Email,
                     DepartmentName = e.Department != null ? e.Department.Name : "Unassigned",
-                    Projects = e.Projects.Select(p => p.ProjectName).ToList()
+                    Projects = e.Projects.Select(p => p.ProjectName).ToList(),
+                    CurrentShift = e.CurrentShift
                 })
                 .ToListAsync();
         }
@@ -58,7 +59,8 @@ namespace EmployeeManagementSystem.Services
                     Salary = e.Salary,
                     Email = e.Email,
                     DepartmentName = e.Department != null ? e.Department.Name : "Unassigned",
-                    Projects = e.Projects.Select(p => p.ProjectName).ToList()
+                    Projects = e.Projects.Select(p => p.ProjectName).ToList(),
+                    CurrentShift = e.CurrentShift
                 })
                 .FirstOrDefaultAsync();
 
