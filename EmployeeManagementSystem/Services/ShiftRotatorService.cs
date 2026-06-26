@@ -1,77 +1,72 @@
 using System;
-using System.Linq;
+using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
 using Azure.Identity;
-using Microsoft.Graph;
-using EmployeeManagementSystem.Models;
-using EmployeeManagementSystem.Repositories;
+using Azure.Core;
 
 namespace EmployeeManagementSystem.Services
 {
     public class ShiftRotatorService : BackgroundService
     {
-        private readonly IServiceProvider _serviceProvider;
         private readonly ILogger<ShiftRotatorService> _logger;
         private readonly IConfiguration _configuration;
 
-        public ShiftRotatorService(IServiceProvider serviceProvider, ILogger<ShiftRotatorService> logger, IConfiguration configuration)
+        public ShiftRotatorService(ILogger<ShiftRotatorService> logger, IConfiguration configuration)
         {
-            _serviceProvider = serviceProvider;
             _logger = logger;
             _configuration = configuration;
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            _logger.LogInformation("Shift Rotator Service is starting.");
+            _logger.LogInformation("Shift Rotator Service (M2M) is starting.");
 
             while (!stoppingToken.IsCancellationRequested)
             {
                 try
                 {
-                    _logger.LogInformation("Shift Rotator is running at: {time}", DateTimeOffset.Now);
+                    _logger.LogInformation("Shift Rotator requesting M2M token at: {time}", DateTimeOffset.Now);
 
-                    // We are skipping the Azure Graph API call because Admin Consent is missing.
-                    // Instead, we will just rotate the shifts directly in the local database!
+                    string tenantId = _configuration["MicrosoftGraph:TenantId"];
+                    string clientId = _configuration["MicrosoftGraph:ClientId"];
+                    string clientSecret = _configuration["MicrosoftGraph:ClientSecret"];
 
-                    using (var scope = _serviceProvider.CreateScope())
+                    // 1. Authenticate with Azure AD as the "Robot"
+                    var credential = new ClientSecretCredential(tenantId, clientId, clientSecret);
+                    
+                    // Request a token specifically scoped to our own API
+                    var tokenRequestContext = new TokenRequestContext(new[] { $"api://{clientId}/.default" });
+                    var token = await credential.GetTokenAsync(tokenRequestContext, stoppingToken);
+
+                    // 2. Make an HTTP POST request to our Web API
+                    using var httpClient = new HttpClient();
+                    httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token.Token);
+                    
+                    // We read the URL dynamically from .env or appsettings!
+                    string apiUrl = _configuration["ApiBaseUrl"]?.TrimEnd('/');
+                    var response = await httpClient.PostAsync($"{apiUrl}/api/Employees/rotate-shifts", null, stoppingToken);
+
+                    if (response.IsSuccessStatusCode)
                     {
-                        var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
-                        var allEmployees = await unitOfWork.Employees.GetAllAsync();
-
-                        var shifts = new[] { "Morning", "Evening", "Night" };
-
-                        foreach (var employee in allEmployees)
-                        {
-                            // Randomly assign a shift
-                            string newShift = shifts[Random.Shared.Next(shifts.Length)];
-
-                            // Optional: Ensure it actually changes (doesn't randomly pick the same shift twice)
-                            while (newShift == employee.CurrentShift)
-                            {
-                                newShift = shifts[Random.Shared.Next(shifts.Length)];
-                            }
-
-                            employee.CurrentShift = newShift;
-                            unitOfWork.Employees.Update(employee);
-                            _logger.LogInformation($"Randomly assigned shift for {employee.Name} to {newShift}.");
-                        }
-
-                        await unitOfWork.CompleteAsync();
-                        _logger.LogInformation("Shift rotation completed successfully and saved to database.");
+                        _logger.LogInformation("Shift rotation completed successfully via Web API!");
+                    }
+                    else
+                    {
+                        string errorBody = await response.Content.ReadAsStringAsync();
+                        _logger.LogError($"Failed to rotate shifts via API. Status Code: {response.StatusCode}. Error: {errorBody}");
                     }
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "An error occurred during the shift rotation process.");
+                    _logger.LogError(ex, "An error occurred during the M2M shift rotation process.");
                 }
 
-                // Wait 24 hours before running again (set to 15 seconds for testing)
+                // Wait 15 seconds before running again for testing purposes
                 await Task.Delay(TimeSpan.FromSeconds(15), stoppingToken);
             }
         }

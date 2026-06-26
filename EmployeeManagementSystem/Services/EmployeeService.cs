@@ -13,6 +13,7 @@ namespace EmployeeManagementSystem.Services
         Task<int> CreateEmployeeAsync(CreateEmployeeDto dto);
         Task UpdateEmployeeAsync(int id, UpdateEmployeeDto dto);
         Task DeleteEmployeeAsync(int id);
+        Task RotateShiftsAsync();
     }
 
     public class EmployeeService : IEmployeeService
@@ -127,6 +128,27 @@ namespace EmployeeManagementSystem.Services
             if (employee == null) throw new Exception("Employee not found");
 
             _unitOfWork.Employees.Remove(employee);
+            _unitOfWork.Employees.Remove(employee);
+            await _unitOfWork.CompleteAsync();
+        }
+
+        public async Task RotateShiftsAsync()
+        {
+            var allEmployees = await _unitOfWork.Employees.GetAllAsync();
+            var shifts = new[] { "Morning", "Evening", "Night" };
+
+            foreach (var employee in allEmployees)
+            {
+                string newShift = shifts[Random.Shared.Next(shifts.Length)];
+                while (newShift == employee.CurrentShift)
+                {
+                    newShift = shifts[Random.Shared.Next(shifts.Length)];
+                }
+
+                employee.CurrentShift = newShift;
+                _unitOfWork.Employees.Update(employee);
+            }
+
             await _unitOfWork.CompleteAsync();
         }
     }

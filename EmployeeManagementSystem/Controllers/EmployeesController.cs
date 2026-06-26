@@ -63,6 +63,15 @@ namespace EmployeeManagementSystem.Controllers
             await _employeeService.DeleteEmployeeAsync(id);
             return Ok(new { Message = "Employee deleted successfully" });
         }
+
+        // ROTATE SHIFTS (M2M Daemon Only)
+        [Authorize(AuthenticationSchemes = "AzureAd", Roles = "Daemon.Execute")]
+        [HttpPost("rotate-shifts")]
+        public async Task<IActionResult> RotateShifts()
+        {
+            await _employeeService.RotateShiftsAsync();
+            return Ok(new { Message = "Shifts rotated successfully via M2M Authentication" });
+        }
     }
 }
 

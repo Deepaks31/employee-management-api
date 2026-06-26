@@ -15,6 +15,7 @@ using Microsoft.AspNetCore.RateLimiting;
 using System.Text;
 using System.Threading.RateLimiting;
 using DotNetEnv;
+using Microsoft.Identity.Web;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -22,9 +23,14 @@ var builder = WebApplication.CreateBuilder(args);
 Env.Load();
 builder.Configuration.AddEnvironmentVariables();
 
-// JWT Authentication
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-.AddJwtBearer(options =>
+// JWT Authentication (Dual Schemes)
+builder.Services.AddAuthentication(options =>
+{
+    // Default scheme for normal humans (Vue Frontend)
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(JwtBearerDefaults.AuthenticationScheme, options =>
 {
     options.TokenValidationParameters = new TokenValidationParameters
     {
@@ -39,7 +45,22 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         IssuerSigningKey = new SymmetricSecurityKey(
             Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"] ?? throw new InvalidOperationException("Jwt:Key is missing")))
     };
-});
+})
+.AddMicrosoftIdentityWebApi(jwtOptions => 
+{
+    // Accept both formats of the Audience claim (with and without api:// prefix)
+    jwtOptions.TokenValidationParameters.ValidAudiences = new[]
+    {
+        builder.Configuration["MicrosoftGraph:ClientId"],
+        $"api://{builder.Configuration["MicrosoftGraph:ClientId"]}"
+    };
+    jwtOptions.TokenValidationParameters.ValidIssuer = $"https://sts.windows.net/{builder.Configuration["MicrosoftGraph:TenantId"]}/";
+}, identityOptions => 
+{
+    identityOptions.Instance = "https://login.microsoftonline.com/";
+    identityOptions.TenantId = builder.Configuration["MicrosoftGraph:TenantId"];
+    identityOptions.ClientId = builder.Configuration["MicrosoftGraph:ClientId"];
+}, "AzureAd");
 
 // CORS
 builder.Services.AddCors(options =>
